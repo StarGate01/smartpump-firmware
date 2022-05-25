@@ -1,0 +1,16 @@
+/**
+ * @file NetworkConfiguration.h
+ * @author Christoph Honal
+ * @brief Defines configuration macros for the LoRa network
+ * @version 0.1
+ * @date 2021-04-12
+ */
+
+#ifndef NETWORK_CONFIGURATION_H
+#define NETWORK_CONFIGURATION_H
+
+// Parameters for The Things Network
+#define TTN_APP_EUI { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }
+#define TTN_APP_KEY { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }
+
+#endif
