@@ -8,7 +8,7 @@ Firmware for an off-grid water pumping system
    - [Documentation](https://heltec.org/project/htcc-ab02a/)
    - [Arduino implementation](https://github.com/HelTecAutomation/CubeCell-Arduino)
 
- - Pump ans sensor interface: **CHRZ power-extender**
+ - Pump and sensor interface: **CHRZ power-extender**
    - [Documentation](https://github.com/StarGate01/power-extender)
    - [Arduino library](https://registry.platformio.org/libraries/stargate01/power-extender)
 
@@ -24,7 +24,9 @@ Attach a serial monitor and read the Device EUI after a reset. Then set the devi
 
 Use the PlatformIO menu to compile and upload the code.
 
-### Payload Formatter
+## TTN configuration
+
+### Uplink Payload Formatter
 
 ```javascript
 function decodeInt16(bytes, offset)
@@ -45,10 +47,66 @@ function decodeUplink(input)
     data: {
       bytes: input.bytes,
       id: input.bytes[0],
-      battery: decodeInt16(input.bytes, 1)
+      current: [
+        decodeFloat32(input.bytes, 1),
+        decodeFloat32(input.bytes, 5),
+        decodeFloat32(input.bytes, 9),
+        decodeFloat32(input.bytes, 13)
+      ]
     },
     warnings: [],
     errors: []
   };
+}
+```
+
+### Downlink Payload Formatter
+
+```javascript
+function encodeDownlink(input) {
+  var rel = 0;
+  if(input.data.relay[0] === true) rel |= 1;
+  if(input.data.relay[1] === true) rel |= 2;
+  if(input.data.relay[2] === true) rel |= 4;
+  if(input.data.relay[3] === true) rel |= 8;
+  return {
+    bytes: [ rel ],
+    fPort: 1,
+    warnings: [],
+    errors: []
+  };
+}
+
+function decodeDownlink(input) {
+  return {
+    data: {
+      bytes: input.bytes,
+      relay: [
+        input.bytes[0] & 1, 
+        input.bytes[0] & 2,
+        input.bytes[0] & 4,
+        input.bytes[0] & 8
+      ]
+    },
+    warnings: [],
+    errors: []
+  };
+}
+```
+
+### Example uplink payload
+
+```json
+{
+  "id": 1,
+  "current": [1.0, 1.0, 1.0, 1.0]
+}
+```
+
+### Example downlink payload
+
+```json
+{
+  "relay": [true, true, true, true]
 }
 ```

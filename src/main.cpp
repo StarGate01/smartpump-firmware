@@ -11,11 +11,11 @@
 #include "NetworkConfiguration.h"
 
 #include "LoRaWan_APP.h" // LoRa WAN
-#include <Wire.h>
+#include "PowerExtender.h" // Relay and sensor board
 
 
 // Auxiliary hardware drivers
-
+PowerExtender power_extender;
 
 // LoRa network configuration buffers
 // These symbols are required by the LoraWan library
@@ -41,17 +41,18 @@ uint8_t appPort = 2; //!< Application port
 uint8_t confirmedNbTrials = 4; //!< Number of trials to transmit the frame if not acknowledged
 
 
-// Sensor buffers
-static char temp_str[8], humid_str[8], temp_str2[8], humid_str2[8];
-
-
 // Lora packet structure definition and buffer allocation
 // Force packed memory alignment to enable pointer cast to buffer
-struct __attribute__ ((packed)) lora_packet_t 
+struct __attribute__ ((packed)) lora_packet_up_t 
 { 
     uint8_t id; 
-    int16_t battery;
-} static packet;
+    float32 current[4];
+} static packet_up;
+
+struct __attribute__ ((packed)) lora_packet_down_t 
+{ 
+    uint8_t relays;
+} static packet_down;
 
 
 // Core logic
@@ -66,6 +67,7 @@ void setup()
     digitalWrite(Vext, HIGH); 
 
     // Setup sensors
+    power_extender.begin();
 
     // Setup LoRa system
     deviceState = DEVICE_STATE_INIT;
@@ -95,24 +97,20 @@ void loop()
 		}
 		case DEVICE_STATE_SEND:
 		{
-            // Read battery voltage
-            packet.battery = getBatteryVoltage();
-
             // Read sensors
-
+            packet_up.current[0] = (float32) power_extender.analogReadAsCurrent(PEPIN_AK1);
+            packet_up.current[1] = (float32) power_extender.analogReadAsCurrent(PEPIN_AK2);
+            packet_up.current[2] = (float32) power_extender.analogReadAsCurrent(PEPIN_AK3);
+            packet_up.current[3] = (float32) power_extender.analogReadAsCurrent(PEPIN_AK4);
             
             // Print packet for monitoring
-            if(Serial)
-            {
-                Serial.printf("Sending packet with id=%d, battery=%d\n", 
-                    packet.id, packet.battery);
-            }
+            if(Serial) Serial.printf("Sending packet with id=%d\n", packet_up.id);
 
             // Blit packet struct into library buffer
-            memcpy(&appData, &packet, min(sizeof(lora_packet_t), LORAWAN_APP_DATA_MAX_SIZE));
-			appDataSize = sizeof(lora_packet_t);
+            memcpy(&appData, &packet_up, min(sizeof(lora_packet_up_t), LORAWAN_APP_DATA_MAX_SIZE));
+			appDataSize = sizeof(lora_packet_up_t);
             LoRaWAN.send();
-            packet.id++;
+            packet_up.id++;
 
 			deviceState = DEVICE_STATE_CYCLE;
 			break;
@@ -156,5 +154,15 @@ void downLinkDataHandle(McpsIndication_t *mcpsIndication)
             Serial.printf("%02X", mcpsIndication->Buffer[i]);
         }
         Serial.println();
+
+        // Control relays
+        if(mcpsIndication->BufferSize >= sizeof(lora_packet_down_t))
+        {
+            packet_down = *((lora_packet_down_t*) mcpsIndication->Buffer); 
+            power_extender.digitalWrite(PEPIN_DOUT_K1, (packet_down.relays & 1)? HIGH:LOW);
+            power_extender.digitalWrite(PEPIN_DOUT_K2, (packet_down.relays & 2)? HIGH:LOW);
+            power_extender.digitalWrite(PEPIN_DOUT_K3, (packet_down.relays & 4)? HIGH:LOW);
+            power_extender.digitalWrite(PEPIN_DOUT_K4, (packet_down.relays & 8)? HIGH:LOW);
+        }
     }
 }
