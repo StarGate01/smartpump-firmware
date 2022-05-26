@@ -36,7 +36,7 @@ bool loraWanAdr = LORAWAN_ADR;
 bool keepNet = LORAWAN_NET_RESERVE;
 bool isTxConfirmed = LORAWAN_UPLINKMODE;
 
-uint32_t appTxDutyCycle = 15000; //!< Transmission frequency in ms
+uint32_t appTxDutyCycle = 30000; //!< Transmission frequency in ms
 uint8_t appPort = 2; //!< Application port 
 uint8_t confirmedNbTrials = 4; //!< Number of trials to transmit the frame if not acknowledged
 
@@ -47,11 +47,12 @@ struct __attribute__ ((packed)) lora_packet_up_t
 { 
     uint8_t id; 
     float32 current[4];
+    float32 adc[4];
 } static packet_up;
 
 struct __attribute__ ((packed)) lora_packet_down_t 
 { 
-    uint8_t relays;
+    uint8_t relay;
 } static packet_down;
 
 
@@ -102,6 +103,11 @@ void loop()
             packet_up.current[1] = (float32) power_extender.analogReadAsCurrent(PEPIN_AK2);
             packet_up.current[2] = (float32) power_extender.analogReadAsCurrent(PEPIN_AK3);
             packet_up.current[3] = (float32) power_extender.analogReadAsCurrent(PEPIN_AK4);
+
+            packet_up.adc[0] = (float32) power_extender.analogReadAsVoltage(PEPIN_A10);
+            packet_up.adc[1] = (float32) power_extender.analogReadAsVoltage(PEPIN_A11);
+            packet_up.adc[2] = (float32) power_extender.analogReadAsVoltage(PEPIN_A12);
+            packet_up.adc[3] = (float32) power_extender.analogReadAsVoltage(PEPIN_A13);
             
             // Print packet for monitoring
             if(Serial) Serial.printf("Sending packet with id=%d\n", packet_up.id);
@@ -149,20 +155,20 @@ void downLinkDataHandle(McpsIndication_t *mcpsIndication)
             mcpsIndication->Port);
 
         // Print packet data
-        for(uint8_t i = 0;i < mcpsIndication->BufferSize; i++) 
+        for(uint8_t i = 0; i < mcpsIndication->BufferSize; i++) 
         {
             Serial.printf("%02X", mcpsIndication->Buffer[i]);
         }
         Serial.println();
+    }
 
-        // Control relays
-        if(mcpsIndication->BufferSize >= sizeof(lora_packet_down_t))
-        {
-            packet_down = *((lora_packet_down_t*) mcpsIndication->Buffer); 
-            power_extender.digitalWrite(PEPIN_DOUT_K1, (packet_down.relays & 1)? HIGH:LOW);
-            power_extender.digitalWrite(PEPIN_DOUT_K2, (packet_down.relays & 2)? HIGH:LOW);
-            power_extender.digitalWrite(PEPIN_DOUT_K3, (packet_down.relays & 4)? HIGH:LOW);
-            power_extender.digitalWrite(PEPIN_DOUT_K4, (packet_down.relays & 8)? HIGH:LOW);
-        }
+    // Control relays
+    if(mcpsIndication->BufferSize >= sizeof(lora_packet_down_t))
+    {
+        packet_down = *((lora_packet_down_t*) mcpsIndication->Buffer); 
+        power_extender.digitalWrite(PEPIN_DOUT_K1, (packet_down.relay & 1)? HIGH:LOW);
+        power_extender.digitalWrite(PEPIN_DOUT_K2, (packet_down.relay & 2)? HIGH:LOW);
+        power_extender.digitalWrite(PEPIN_DOUT_K3, (packet_down.relay & 4)? HIGH:LOW);
+        power_extender.digitalWrite(PEPIN_DOUT_K4, (packet_down.relay & 8)? HIGH:LOW);
     }
 }

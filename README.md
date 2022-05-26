@@ -52,6 +52,12 @@ function decodeUplink(input)
         decodeFloat32(input.bytes, 5),
         decodeFloat32(input.bytes, 9),
         decodeFloat32(input.bytes, 13)
+      ],
+      adc: [
+        decodeFloat32(input.bytes, 17),
+        decodeFloat32(input.bytes, 21),
+        decodeFloat32(input.bytes, 25),
+        decodeFloat32(input.bytes, 29)
       ]
     },
     warnings: [],
@@ -99,7 +105,8 @@ function decodeDownlink(input) {
 ```json
 {
   "id": 1,
-  "current": [1.0, 1.0, 1.0, 1.0]
+  "current": [1.0, 1.0, 1.0, 1.0],
+  "adc": [1.0, 1.0, 1.0, 1.0]
 }
 ```
 
